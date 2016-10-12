@@ -83,7 +83,12 @@ namespace MySql.Data.Serialization
 			var response = HandshakeResponse41Packet.Create(initialHandshake, userId, password, database);
 			payload = new PayloadData(new ArraySegment<byte>(response));
 			await SendReplyAsync(payload, ioBehavior, cancellationToken).ConfigureAwait(false);
-			await ReceiveReplyAsync(ioBehavior, cancellationToken).ConfigureAwait(false);
+			payload = await ReceiveReplyAsync(ioBehavior, cancellationToken).ConfigureAwait(false);
+			OkPayload.Create(payload);
+
+			m_compressionLayer = new CompressionLayer(m_byteReader, m_byteWriter);
+			m_payloadReader = new PayloadReader(new PacketReader(m_compressionLayer));
+			m_payloadWriter = new PacketFormatter(m_compressionLayer);
 		}
 
 		public async Task ResetConnectionAsync(string userId, string password, string database, IOBehavior ioBehavior, CancellationToken cancellationToken)
@@ -238,12 +243,12 @@ namespace MySql.Data.Serialization
 					m_socket = socket;
 					m_conversation = new Conversation();
 
-					var socketByteReader = new SocketByteReader(m_socket);
-					var packetReader = new PacketReader(socketByteReader);
+					m_byteReader = new SocketByteReader(m_socket);
+					var packetReader = new PacketReader(m_byteReader);
 					m_payloadReader = new PayloadReader(packetReader);
 
-					var socketByteWriter = new SocketByteWriter(m_socket);
-					var packetWriter = new PacketWriter(socketByteWriter);
+					m_byteWriter = new SocketByteWriter(m_socket);
+					var packetWriter = new PacketWriter(m_byteWriter);
 					m_payloadWriter = new PacketFormatter(packetWriter);
 
 					m_state = State.Connected;
@@ -319,5 +324,8 @@ namespace MySql.Data.Serialization
 		Conversation m_conversation;
 		IPayloadReader m_payloadReader;
 		IPayloadWriter m_payloadWriter;
+		CompressionLayer m_compressionLayer;
+		SocketByteReader m_byteReader;
+		SocketByteWriter m_byteWriter;
 	}
 }

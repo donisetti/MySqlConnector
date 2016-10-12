@@ -10,18 +10,21 @@ namespace MySql.Data.Serialization
 		{
 			// TODO: verify server capabilities
 
-			var writer = new PayloadWriter();
-
-			writer.WriteInt32((int) (
-				ProtocolCapabilities.Protocol41 |
+			var capabilities = ProtocolCapabilities.Protocol41 |
 				ProtocolCapabilities.LongPassword |
 				ProtocolCapabilities.SecureConnection |
 				ProtocolCapabilities.PluginAuth |
 				ProtocolCapabilities.PluginAuthLengthEncodedClientData |
 				ProtocolCapabilities.MultiStatements |
 				ProtocolCapabilities.MultiResults |
-				ProtocolCapabilities.PreparedStatementMultiResults |
-				(string.IsNullOrWhiteSpace(database) ? 0 : ProtocolCapabilities.ConnectWithDatabase)));
+				ProtocolCapabilities.PreparedStatementMultiResults;
+			if (!string.IsNullOrWhiteSpace(database))
+				capabilities |= ProtocolCapabilities.ConnectWithDatabase;
+			if (handshake.ProtocolCapabilities.HasFlag(ProtocolCapabilities.Compress))
+				capabilities |= ProtocolCapabilities.Compress;
+
+			var writer = new PayloadWriter();
+			writer.WriteInt32((int) capabilities);
 			writer.WriteInt32(0x40000000);
 			writer.WriteByte((byte) CharacterSet.Utf8Mb4Binary);
 			writer.Write(new byte[23]);
